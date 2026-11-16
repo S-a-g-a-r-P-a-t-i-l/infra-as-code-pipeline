@@ -1,0 +1,45 @@
+name: Deploy to production
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test
+        run: pip install -r requirements.txt && pytest
+        working-directory: app
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+      - name: Build and push to prod ECR
+        id: meta
+        run: |
+          TAG=${GITHUB_SHA::8}
+          REPO=${{ steps.ecr.outputs.registry }}/capstone3-prod
+          docker build -t $REPO:$TAG ./app
+          docker push $REPO:$TAG
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+  deploy-production:
+    needs: build-and-push
+    uses: ./.github/workflows/_deploy-env.yml
+    with:
+      environment: production
+      image_tag: ${{ needs.build-and-push.outputs.image_tag }}
+    secrets: inherit
