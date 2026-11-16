@@ -69,7 +69,7 @@ jobs:
 
   deploy-staging:
     needs: build-push-staging
-    uses: ./.github/workflows/_deploy-env.yml
+    uses: ./.github/workflows/deploy-env.yml
     with:
       environment: staging
       image_tag: ${{ needs.build-push-staging.outputs.image_tag }}

@@ -38,7 +38,7 @@ jobs:
 
   deploy-production:
     needs: build-and-push
-    uses: ./.github/workflows/_deploy-env.yml
+    uses: ./.github/workflows/deploy-env.yml
     with:
       environment: production
       image_tag: ${{ needs.build-and-push.outputs.image_tag }}
