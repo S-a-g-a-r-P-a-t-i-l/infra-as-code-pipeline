@@ -60,8 +60,20 @@ jobs:
         timeout-minutes: 5
         run: aws ecs wait services-stable --cluster ${NAME}-cluster --services ${NAME}-svc
 
+      - name: Verify new version is actually live
+        run: |
+          CUR=$(aws ecs describe-services --cluster ${NAME}-cluster --services ${NAME}-svc \
+            --query 'services[0].taskDefinition' --output text)
+          STATE=$(aws ecs describe-services --cluster ${NAME}-cluster --services ${NAME}-svc \
+            --query "services[0].deployments[?status=='PRIMARY'].rolloutState | [0]" --output text)
+          echo "current=$CUR expected=$NEW_TD state=$STATE"
+          if [ "$CUR" != "$NEW_TD" ] || [ "$STATE" != "COMPLETED" ]; then
+            echo "New task definition is not live/healthy"
+            exit 1
+          fi
+
       - name: Auto-rollback on failure
-        if: failure() && steps.wait.outcome != 'success'
+        if: failure()
         run: |
           echo "Deployment unhealthy. Rolling back to $PREV_TD"
           aws ecs update-service --cluster ${NAME}-cluster --service ${NAME}-svc \
