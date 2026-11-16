@@ -1,14 +1,14 @@
-variable "name"               { type = string }
-variable "region"             { type = string }
-variable "vpc_id"             { type = string }
-variable "public_subnet_ids"  { type = list(string) }
-variable "ecs_subnet_ids"     { type = list(string) }
-variable "alb_sg_id"          { type = string }
-variable "ecs_sg_id"          { type = string }
+variable "name" { type = string }
+variable "region" { type = string }
+variable "vpc_id" { type = string }
+variable "public_subnet_ids" { type = list(string) }
+variable "ecs_subnet_ids" { type = list(string) }
+variable "alb_sg_id" { type = string }
+variable "ecs_sg_id" { type = string }
 variable "execution_role_arn" { type = string }
-variable "task_role_arn"      { type = string }
-variable "log_group_name"     { type = string }
-variable "assign_public_ip"   { type = bool }
+variable "task_role_arn" { type = string }
+variable "log_group_name" { type = string }
+variable "assign_public_ip" { type = bool }
 variable "container_port" {
   type    = number
   default = 8080
