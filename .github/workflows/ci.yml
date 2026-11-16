@@ -21,8 +21,10 @@ jobs:
         working-directory: terraform
       - name: tflint
         run: |
-          tflint --init
-          tflint --recursive
+          for d in . modules/networking modules/security modules/compute modules/monitoring; do
+            echo "== tflint $d =="
+            tflint --chdir="$d"
+          done
         working-directory: terraform
 
   app-test:
