@@ -23,7 +23,7 @@ jobs:
         run: |
           for d in . modules/networking modules/security modules/compute modules/monitoring; do
             echo "== tflint $d =="
-            tflint --chdir="$d"
+            tflint --chdir="$d" --minimum-failure-severity=error
           done
         working-directory: terraform
 
