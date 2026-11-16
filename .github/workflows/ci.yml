@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  terraform-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: terraform-linters/setup-tflint@v4
+      - name: fmt check
+        run: terraform fmt -check -recursive
+        working-directory: terraform
+      - name: init (no backend) and validate
+        run: |
+          terraform init -backend=false
+          terraform validate
+        working-directory: terraform
+      - name: tflint
+        run: |
+          tflint --init
+          tflint --recursive
+        working-directory: terraform
+
+  app-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt && pytest
+        working-directory: app
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [terraform-lint, app-test]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t app:ci ./app
