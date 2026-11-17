@@ -62,15 +62,17 @@ jobs:
 
       - name: Verify new version is actually live
         run: |
-          CUR=$(aws ecs describe-services --cluster ${NAME}-cluster --services ${NAME}-svc \
-            --query 'services[0].taskDefinition' --output text)
-          STATE=$(aws ecs describe-services --cluster ${NAME}-cluster --services ${NAME}-svc \
-            --query "services[0].deployments[?status=='PRIMARY'].rolloutState | [0]" --output text)
-          echo "current=$CUR expected=$NEW_TD state=$STATE"
-          if [ "$CUR" != "$NEW_TD" ] || [ "$STATE" != "COMPLETED" ]; then
-            echo "New task definition is not live/healthy"
-            exit 1
-          fi
+          for i in $(seq 1 20); do
+            CUR=$(aws ecs describe-services --cluster ${NAME}-cluster --services ${NAME}-svc \
+              --query 'services[0].taskDefinition' --output text)
+            STATE=$(aws ecs describe-services --cluster ${NAME}-cluster --services ${NAME}-svc \
+              --query "services[0].deployments[?status=='PRIMARY'].rolloutState | [0]" --output text)
+            echo "try=$i current=$CUR expected=$NEW_TD state=$STATE"
+            if [ "$CUR" = "$NEW_TD" ] && [ "$STATE" = "COMPLETED" ]; then exit 0; fi
+            sleep 15
+          done
+          echo "New task definition is not live/healthy"
+          exit 1
 
       - name: Auto-rollback on failure
         if: failure()
