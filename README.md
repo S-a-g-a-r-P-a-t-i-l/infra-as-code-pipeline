@@ -74,5 +74,5 @@ Notes: the demo uses an admin IAM user; in a real setup use GitHub OIDC with a l
 | ECR, CloudWatch, S3, DynamoDB | ~$1-3 | ~$1-3 |
 | **Total** | **~$40/month** | **~$100/month** |
 
-Prices are estimates; verify with the AWS Pricing Calculator. Prod code is written but was not applied to avoid NAT Gateway cost; staging was applied, tested and destroyed after the demo.
+Prices are estimates; verify with the AWS Pricing Calculator. Staging and production were both applied, deployed through the pipeline, and destroyed after the demo to avoid cost.
 
