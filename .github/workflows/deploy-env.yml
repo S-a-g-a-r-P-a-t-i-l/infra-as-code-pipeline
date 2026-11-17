@@ -1,0 +1,82 @@
+name: Deploy to environment (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      image_tag:
+        required: true
+        type: string
+
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # "production" environment has Required reviewers in GitHub = manual approval gate
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve names
+        run: |
+          ENV=${{ inputs.environment }}
+          [ "$ENV" = "production" ] && ENV=prod
+          echo "NAME=capstone3-$ENV" >> $GITHUB_ENV
+
+      - name: Capture previous task definition
+        run: |
+          PREV=$(aws ecs describe-services --cluster ${NAME}-cluster --services ${NAME}-svc \
+            --query 'services[0].taskDefinition' --output text)
+          echo "PREV_TD=$PREV" >> $GITHUB_ENV
+          echo "Previous: $PREV"
+
+      - name: Render new task definition
+        run: |
+          aws ecs describe-task-definition --task-definition $PREV_TD \
+            --query taskDefinition > td.json
+          REGISTRY=$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${AWS_REGION}.amazonaws.com
+          jq --arg img "$REGISTRY/${NAME}:${{ inputs.image_tag }}" \
+            'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)
+             | .containerDefinitions[0].image = $img' td.json > new-td.json
+
+      - name: Register and deploy
+        run: |
+          NEW_TD=$(aws ecs register-task-definition --cli-input-json file://new-td.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "NEW_TD=$NEW_TD" >> $GITHUB_ENV
+          aws ecs update-service --cluster ${NAME}-cluster --service ${NAME}-svc \
+            --task-definition $NEW_TD >/dev/null
+
+      - name: Wait for healthy (5 min limit)
+        id: wait
+        timeout-minutes: 5
+        run: aws ecs wait services-stable --cluster ${NAME}-cluster --services ${NAME}-svc
+
+      - name: Verify new version is actually live
+        run: |
+          CUR=$(aws ecs describe-services --cluster ${NAME}-cluster --services ${NAME}-svc \
+            --query 'services[0].taskDefinition' --output text)
+          STATE=$(aws ecs describe-services --cluster ${NAME}-cluster --services ${NAME}-svc \
+            --query "services[0].deployments[?status=='PRIMARY'].rolloutState | [0]" --output text)
+          echo "current=$CUR expected=$NEW_TD state=$STATE"
+          if [ "$CUR" != "$NEW_TD" ] || [ "$STATE" != "COMPLETED" ]; then
+            echo "New task definition is not live/healthy"
+            exit 1
+          fi
+
+      - name: Auto-rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment unhealthy. Rolling back to $PREV_TD"
+          aws ecs update-service --cluster ${NAME}-cluster --service ${NAME}-svc \
+            --task-definition $PREV_TD >/dev/null
+          aws ecs wait services-stable --cluster ${NAME}-cluster --services ${NAME}-svc
+          exit 1
