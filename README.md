@@ -75,3 +75,4 @@ Notes: the demo uses an admin IAM user; in a real setup use GitHub OIDC with a l
 | **Total** | **~$40/month** | **~$100/month** |
 
 Prices are estimates; verify with the AWS Pricing Calculator. Prod code is written but was not applied to avoid NAT Gateway cost; staging was applied, tested and destroyed after the demo.
+
